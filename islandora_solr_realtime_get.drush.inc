@@ -62,7 +62,7 @@ function drush_islandora_solr_realtime_get_validate() {
  * Implements drush_hook_COMMAND().
  */
 function drush_islandora_solr_realtime_get() {
-  module_load_include('module', 'islandora_solr_realtime_get');
+  module_load_include('inc', 'islandora_solr_realtime_get', 'includes/utilities');
 
   $id = drush_get_option('id');
   $ids = drush_get_option('ids');
@@ -95,7 +95,7 @@ function drush_islandora_solr_realtime_get() {
     $fieldcount = 0;
     for ($i = 0; $i < $time; $i++) {
       foreach ($ids as $id) {
-        $result = islandora_solr_realtime_get_retrieve($id, $fields);
+        $result = islandora_solr_realtime_get_retrieve_array($id, $fields);
         if ($result) {
           $recordcount += 1;
           $fieldcount += count($result);
@@ -131,15 +131,43 @@ function drush_islandora_solr_realtime_get() {
           }
         }
       }
-    }
-    $end = microtime(TRUE);
-    print "Solr search with q: $recordcount records ($fieldcount fields) retrieved in " . sprintf("%.6f", ($end - $start)) . " seconds\n";
+      $end = microtime(TRUE);
+      print "Solr search with q: $recordcount records ($fieldcount fields) retrieved in " . sprintf("%.6f", ($end - $start)) . " seconds\n";
 
+      // Solr Search with fq:
+      $time = $time + 0;
+      $start = microtime(TRUE);
+      $recordcount = 0;
+      $fieldcount = 0;
+      for ($i = 0; $i < $time; $i++) {
+        foreach ($ids as $id) {
+          $qp = new IslandoraSolrQueryProcessor();
+          $query = "PID:" . islandora_solr_lesser_escape($id);
+          $qp->buildQuery('*:*');
+          $qp->solrParams['fq'] = array($query); // make sure we get all the results
+          if (isset($fields)) {
+            $qp->solrParams['fl'] = $fields;
+          }
+          $qp->executeQuery(false);
+          $r = $qp->islandoraSolrResult;
+          if ($r['response']['numFound'] === 1) {
+            $solrdoc = $r['response']['objects'][0]['solr_doc'];
+            if ($solrdoc) {
+              $recordcount += 1;
+              $fieldcount += count($solrdoc);
+            }
+          }
+        }
+      }
+      $end = microtime(TRUE);
+      print "Solr search with fq: $recordcount records ($fieldcount fields) retrieved in " . sprintf("%.6f", ($end - $start)) . " seconds\n";
+    }
   }
 }
 
 function islandora_solr_realtime_get_retrieve_and_print($id, $fields = NULL) {
-  $result = islandora_solr_realtime_get_retrieve($id, $fields);
+  module_load_include('module', 'islandora_solr_realtime_get');
+  $result = islandora_solr_realtime_get_retrieve_array($id, $fields);
 
   if ($result) {
     foreach ($result as $field => $value) {

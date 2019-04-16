@@ -24,32 +24,33 @@
  *
  */
 
+// Permissions.
+define('ISLANDORA_SOLR_REALTIME_GET_PERMISSION', 'view solr output');
+
 /**
- * Retrieves the (requested) fields of a Solr document identified by $pid.
- *
- * @return output
- *   An associative array with the (requested) fields of the found Solr
- *   document as keys and their values as value (multivalued fields are
- *   represented as indexed arrays, singlevalued fields as string.
+ * Implements hook_menu().
  */
-function islandora_solr_realtime_get_retrieve($pid, $fields = NULL) {
-  if (module_load_include('inc', 'islandora_solr', 'includes/luke')) {
-    $solr_url = variable_get('islandora_solr_url', 'localhost:8080/solr');
-    if (islandora_solr_ping($solr_url)) {
-      $realtime_get_url = islandora_solr_check_http($solr_url . '/get');
-      $query = array('wt' => 'json', 'id' => $pid);
-      if ($fields !== NULL) {
-        $query['fl'] = implode(',', $fields);
-      }
-      $realtime_get_url = url($realtime_get_url, array('absolute' => TRUE, 'query' => $query));
-      $response = drupal_http_request($realtime_get_url);
-      if ($response->code >= 200 && $response->code < 300) {
-        $get_array = json_decode($response->data, TRUE);
-        if (isset($get_array['doc'])) {
-          return $get_array['doc'];
-        }
-      } 
-    }
-  }
-  return NULL;
+function islandora_solr_realtime_get_menu() {
+  return array(
+    'islandora/object/%islandora_object/solr_realtime_get' => array(
+      'title' => t('Solr document'),
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'islandora_solr_realtime_get_view',
+      'page arguments' => array(2),
+      'file' => 'includes/admin.form.inc',
+      'access arguments' => array(ISLANDORA_SOLR_REALTIME_GET_PERMISSION),
+    ),
+  );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function islandora_solr_realtime_get_permission() {
+  return array(
+    ISLANDORA_SOLR_REALTIME_GET_PERMISSION => array(
+      'title' => t('View Solr document'),
+      'description' => t("View Solr document retrieved via Solr RealTime Get."),
+    ),
+  );
 }
